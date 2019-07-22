@@ -51,71 +51,18 @@ public final class BKDReader extends PointValues implements Accountable {
 
   private static class BKDOffHeapInput extends BKDInput implements Cloneable {
 
-    private final ByteArrayDataInput packedIndex;
-    private final long minLeafBlockFP;
-
-    BKDOffHeapInput(IndexInput packedIndex, int numBytes) throws IOException {
-      byte[] packedBytes = new byte[numBytes];
-      packedIndex.readBytes(packedBytes, 0, numBytes);
-      this.packedIndex = new ByteArrayDataInput(packedBytes);
-      this.minLeafBlockFP = this.packedIndex.clone().readVLong();
-    }
-
-    private BKDOffHeapInput(ByteArrayDataInput packedIndex, long minLeadBlockFP) {
-      this.packedIndex = packedIndex;
-      this.minLeafBlockFP = minLeadBlockFP;
-    }
-
-    @Override
-    public BKDOffHeapInput clone() {
-      return new BKDOffHeapInput((ByteArrayDataInput)packedIndex.clone(), minLeafBlockFP);
-    }
-
-    @Override
-    long getMinLeafBlockFP() {
-      return minLeafBlockFP;
-    }
-
-    @Override
-    long ramBytesUsed() {
-      return packedIndex.length();
-    }
-
-    @Override
-    int getPosition() {
-      return packedIndex.getPosition();
-    }
-
-    @Override
-    void setPosition(int pos) {
-      packedIndex.setPosition(pos);
-    }
-
-    @Override
-    public byte readByte() throws IOException {
-      return packedIndex.readByte();
-    }
-
-    @Override
-    public void readBytes(byte[] b, int offset, int len) throws IOException {
-      packedIndex.readBytes(b, offset, len);
-    }
-  }
-
-  private static class BKDOnHeapInput extends BKDInput implements Cloneable {
-
     private final IndexInput packedIndex;
     private final long minLeafBlockFP;
 
-    BKDOnHeapInput(IndexInput packedIndex) throws IOException {
+    BKDOffHeapInput(IndexInput packedIndex) throws IOException {
       this.packedIndex = packedIndex.clone();
       this.minLeafBlockFP = packedIndex.clone().readVLong();
     }
 
     @Override
-    public BKDOnHeapInput clone() {
+    public BKDOffHeapInput clone() {
       try {
-        return new BKDOnHeapInput(packedIndex.clone());
+        return new BKDOffHeapInput(packedIndex.clone());
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -139,6 +86,59 @@ public final class BKDReader extends PointValues implements Accountable {
     @Override
     void setPosition(int pos) throws IOException {
       packedIndex.seek(pos);
+    }
+
+    @Override
+    public byte readByte() throws IOException {
+      return packedIndex.readByte();
+    }
+
+    @Override
+    public void readBytes(byte[] b, int offset, int len) throws IOException {
+      packedIndex.readBytes(b, offset, len);
+    }
+  }
+
+  private static class BKDOnHeapInput extends BKDInput implements Cloneable {
+
+    private final ByteArrayDataInput packedIndex;
+    private final long minLeafBlockFP;
+
+    BKDOnHeapInput(IndexInput packedIndex, int numBytes) throws IOException {
+      byte[] packedBytes = new byte[numBytes];
+      packedIndex.readBytes(packedBytes, 0, numBytes);
+      this.packedIndex = new ByteArrayDataInput(packedBytes);
+      this.minLeafBlockFP = this.packedIndex.clone().readVLong();
+    }
+
+    private BKDOnHeapInput(ByteArrayDataInput packedIndex, long minLeadBlockFP) {
+      this.packedIndex = packedIndex;
+      this.minLeafBlockFP = minLeadBlockFP;
+    }
+
+    @Override
+    public BKDOnHeapInput clone() {
+      return new BKDOnHeapInput((ByteArrayDataInput)packedIndex.clone(), minLeafBlockFP);
+    }
+
+    @Override
+    long getMinLeafBlockFP() {
+      return minLeafBlockFP;
+    }
+
+    @Override
+    long ramBytesUsed() {
+      return packedIndex.length();
+    }
+
+    @Override
+    int getPosition() {
+      return packedIndex.getPosition();
+    }
+
+    @Override
+    void setPosition(int pos) {
+      packedIndex.setPosition(pos);
     }
 
     @Override
@@ -206,8 +206,8 @@ public final class BKDReader extends PointValues implements Accountable {
 
     int numBytes = in.readVInt();
     IndexInput slice = in.slice("packedIndex", in.getFilePointer(), numBytes);
-    packedIndex = new BKDOffHeapInput(slice, numBytes);
-    //packedIndex = new BKDOnHeapInput(slice); // TODO: add system property to give the user the choice
+    //packedIndex = new BKDOnHeapInput(slice, numBytes); // TODO: add system property to give the user the choice
+    packedIndex = new BKDOffHeapInput(slice);
 
     this.in = in;
   }
