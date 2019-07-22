@@ -17,6 +17,7 @@
 package org.apache.lucene.util.bkd;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 
 import org.apache.lucene.codecs.CodecUtil;
@@ -41,7 +42,7 @@ public final class BKDReader extends PointValues implements Accountable {
     abstract long ramBytesUsed();
 
     abstract int getPosition();
-    abstract void setPosition(int pos) throws IOException;
+    abstract void setPosition(int pos);
 
     @Override
     public BKDInput clone() {
@@ -55,7 +56,7 @@ public final class BKDReader extends PointValues implements Accountable {
     private final long minLeafBlockFP;
 
     BKDOffHeapInput(IndexInput packedIndex) throws IOException {
-      this.packedIndex = packedIndex.clone();
+      this.packedIndex = packedIndex;
       this.minLeafBlockFP = packedIndex.clone().readVLong();
     }
 
@@ -64,7 +65,7 @@ public final class BKDReader extends PointValues implements Accountable {
       try {
         return new BKDOffHeapInput(packedIndex.clone());
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
 
@@ -84,8 +85,12 @@ public final class BKDReader extends PointValues implements Accountable {
     }
 
     @Override
-    void setPosition(int pos) throws IOException {
-      packedIndex.seek(pos);
+    void setPosition(int pos) {
+      try {
+        packedIndex.seek(pos);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
     }
 
     @Override
@@ -275,11 +280,7 @@ public final class BKDReader extends PointValues implements Accountable {
       System.arraycopy(negativeDeltas, (level-1)*numIndexDims, negativeDeltas, level*numIndexDims, numIndexDims);
       assert splitDim != -1;
       negativeDeltas[level*numIndexDims+splitDim] = true;
-      try {
-        in.setPosition(nodePosition);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      in.setPosition(nodePosition);
       readNodeData(true);
     }
     
@@ -309,11 +310,7 @@ public final class BKDReader extends PointValues implements Accountable {
       System.arraycopy(negativeDeltas, (level-1)*numIndexDims, negativeDeltas, level*numIndexDims, numIndexDims);
       assert splitDim != -1;
       negativeDeltas[level*numIndexDims+splitDim] = false;
-      try {
-        in.setPosition(nodePosition);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      in.setPosition(nodePosition);
       readNodeData(false);
     }
 
@@ -445,7 +442,7 @@ public final class BKDReader extends PointValues implements Accountable {
           rightNodePositions[level] = leftNodePositions[level] + leftNumBytes;
         }
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
   }
