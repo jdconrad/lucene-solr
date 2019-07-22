@@ -52,28 +52,28 @@ public final class BKDReader extends PointValues implements Accountable {
   private static class BKDOffHeapInput extends BKDInput implements Cloneable {
 
     private final ByteArrayDataInput packedIndex;
-    private final long minLeadBlockFP;
+    private final long minLeafBlockFP;
 
     BKDOffHeapInput(IndexInput packedIndex, int numBytes) throws IOException {
       byte[] packedBytes = new byte[numBytes];
       packedIndex.readBytes(packedBytes, 0, numBytes);
       this.packedIndex = new ByteArrayDataInput(packedBytes);
-      this.minLeadBlockFP = this.packedIndex.clone().readVLong();
+      this.minLeafBlockFP = this.packedIndex.clone().readVLong();
     }
 
     private BKDOffHeapInput(ByteArrayDataInput packedIndex, long minLeadBlockFP) {
       this.packedIndex = packedIndex;
-      this.minLeadBlockFP = minLeadBlockFP;
+      this.minLeafBlockFP = minLeadBlockFP;
     }
 
     @Override
     public BKDOffHeapInput clone() {
-      return new BKDOffHeapInput((ByteArrayDataInput)packedIndex.clone(), minLeadBlockFP);
+      return new BKDOffHeapInput((ByteArrayDataInput)packedIndex.clone(), minLeafBlockFP);
     }
 
     @Override
     long getMinLeafBlockFP() {
-      return minLeadBlockFP;
+      return minLeafBlockFP;
     }
 
     @Override
@@ -105,11 +105,11 @@ public final class BKDReader extends PointValues implements Accountable {
   private static class BKDOnHeapInput extends BKDInput implements Cloneable {
 
     private final IndexInput packedIndex;
-    private final long minLeadBlockFP;
+    private final long minLeafBlockFP;
 
     BKDOnHeapInput(IndexInput packedIndex) throws IOException {
       this.packedIndex = packedIndex.clone();
-      this.minLeadBlockFP = packedIndex.clone().readVLong();
+      this.minLeafBlockFP = packedIndex.clone().readVLong();
     }
 
     @Override
@@ -123,7 +123,7 @@ public final class BKDReader extends PointValues implements Accountable {
 
     @Override
     long getMinLeafBlockFP() {
-      return minLeadBlockFP;
+      return minLeafBlockFP;
     }
 
     @Override
