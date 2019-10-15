@@ -25,6 +25,7 @@ import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.PointValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.ByteArrayDataInput;
+import org.apache.lucene.store.ByteBufferIndexInput;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Accountable;
@@ -42,7 +43,7 @@ public final class BKDReader extends PointValues implements Accountable {
     abstract long ramBytesUsed();
 
     abstract int getPosition();
-    abstract void setPosition(int pos);
+    abstract void setPosition(int pos) throws IOException;
 
     @Override
     public BKDInput clone() {
@@ -85,12 +86,8 @@ public final class BKDReader extends PointValues implements Accountable {
     }
 
     @Override
-    void setPosition(int pos) {
-      try {
+    void setPosition(int pos) throws IOException {
         packedIndex.seek(pos);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
     }
 
     @Override
@@ -177,6 +174,14 @@ public final class BKDReader extends PointValues implements Accountable {
 
   /** Caller must pre-seek the provided {@link IndexInput} to the index location that {@link BKDWriter#finish} returned */
   public BKDReader(IndexInput in) throws IOException {
+    this(in, in instanceof ByteBufferIndexInput);
+  }
+
+  /**
+   * Caller must pre-seek the provided {@link IndexInput} to the index location that {@link BKDWriter#finish} returned
+   * and specify {@code true} to store BKD off-heap ({@code false} otherwise)
+   */
+  public BKDReader(IndexInput in, boolean offHeap) throws IOException {
     version = CodecUtil.checkHeader(in, BKDWriter.CODEC_NAME, BKDWriter.VERSION_START, BKDWriter.VERSION_CURRENT);
     numDataDims = in.readVInt();
     if (version >= BKDWriter.VERSION_SELECTIVE_INDEXING) {
@@ -211,8 +216,11 @@ public final class BKDReader extends PointValues implements Accountable {
 
     int numBytes = in.readVInt();
     IndexInput slice = in.slice("packedIndex", in.getFilePointer(), numBytes);
-    //packedIndex = new BKDOnHeapInput(slice, numBytes); // TODO: add system property to give the user the choice
-    packedIndex = new BKDOffHeapInput(slice);
+    if (offHeap) {
+      packedIndex = new BKDOffHeapInput(slice);
+    } else {
+      packedIndex = new BKDOnHeapInput(slice, numBytes);
+    }
 
     this.in = in;
   }
@@ -280,7 +288,11 @@ public final class BKDReader extends PointValues implements Accountable {
       System.arraycopy(negativeDeltas, (level-1)*numIndexDims, negativeDeltas, level*numIndexDims, numIndexDims);
       assert splitDim != -1;
       negativeDeltas[level*numIndexDims+splitDim] = true;
-      in.setPosition(nodePosition);
+      try {
+        in.setPosition(nodePosition);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
       readNodeData(true);
     }
     
@@ -310,7 +322,11 @@ public final class BKDReader extends PointValues implements Accountable {
       System.arraycopy(negativeDeltas, (level-1)*numIndexDims, negativeDeltas, level*numIndexDims, numIndexDims);
       assert splitDim != -1;
       negativeDeltas[level*numIndexDims+splitDim] = false;
-      in.setPosition(nodePosition);
+      try {
+        in.setPosition(nodePosition);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
       readNodeData(false);
     }
 
