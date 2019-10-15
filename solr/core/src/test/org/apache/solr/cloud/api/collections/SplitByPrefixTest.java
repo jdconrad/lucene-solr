@@ -40,10 +40,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//
-// This class tests higher level SPLITSHARD functionality when splitByPrefix is specified.
-// See SplitHandlerTest for random tests of lower-level split selection logic.
-//
+/** 
+ *  This class tests higher level SPLITSHARD functionality when splitByPrefix is specified.
+ *  See SplitHandlerTest for random tests of lower-level split selection logic.
+ */
 public class SplitByPrefixTest extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -53,8 +53,12 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
   public static void setupCluster() throws Exception {
     System.setProperty("managed.schema.mutable", "true");  // needed by cloud-managed config set
 
+    // clould-managed has the copyField from ID to id_prefix
+    // cloud-minimal does not and thus histogram should be driven from the "id" field directly
+    String configSetName = random().nextBoolean() ? "cloud-minimal" : "cloud-managed";
+
     configureCluster(1)
-        .addConfig("conf", configset("cloud-managed"))  // cloud-managed has the id copyfield to id_prefix
+        .addConfig("conf", configset(configSetName))  // cloud-managed has the id copyfield to id_prefix
         .configure();
   }
 
@@ -71,9 +75,9 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
     cluster.deleteAllCollections();
   }
 
-  static class Prefix implements Comparable<Prefix> {
-    String key;
-    DocRouter.Range range;
+  public static class Prefix implements Comparable<Prefix> {
+    public String key;
+    public DocRouter.Range range;
 
     @Override
     public int compareTo(Prefix o) {
@@ -86,8 +90,10 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
     }
   }
 
-  // find prefixes (shard keys) matching certain criteria
-  public List<Prefix> findPrefixes(int numToFind, int lowerBound, int upperBound) {
+  /**
+   * find prefixes (shard keys) matching certain criteria
+   */
+  public static List<Prefix> findPrefixes(int numToFind, int lowerBound, int upperBound) {
     CompositeIdRouter router = new CompositeIdRouter();
 
     ArrayList<Prefix> prefixes = new ArrayList<>();
@@ -111,8 +117,10 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
     return prefixes;
   }
 
-  // remove duplicate prefixes from the sorted prefix list
-  List<Prefix> removeDups(List<Prefix> prefixes) {
+  /**
+   * remove duplicate prefixes from the SORTED prefix list
+   */
+  public static List<Prefix> removeDups(List<Prefix> prefixes) {
     ArrayList<Prefix> result = new ArrayList<>();
     Prefix last = null;
     for (Prefix prefix : prefixes) {
@@ -131,6 +139,7 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
   SolrInputDocument getDoc(String prefix, String unique) {
     String secondLevel = "";
     if (random().nextBoolean()) {
+      prefix = prefix.substring(0, prefix.length()-1) + "/16!";  // change "foo!" into "foo/16!" to match 2 level compositeId
       secondLevel="" + random().nextInt(2) + "!";
     }
     return sdoc("id", prefix + secondLevel + unique);
@@ -197,7 +206,7 @@ public class SplitByPrefixTest extends SolrCloudTestCase {
 
 
     //
-    // now lets add enough documents to the first prefix to get it split out on it's own
+    // now lets add enough documents to the first prefix to get it split out on its own
     //
     for (int i=0; i<uniquePrefixes.size(); i++) {
       client.add(  getDoc(uniquePrefixes.get(0).key, "doc"+(i+100)));

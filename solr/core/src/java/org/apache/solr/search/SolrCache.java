@@ -27,8 +27,19 @@ import java.util.Map;
  */
 public interface SolrCache<K,V> extends SolrInfoBean, SolrMetricProducer {
 
+  String HIT_RATIO_PARAM = "hitratio";
+  String HITS_PARAM = "hits";
+  String INSERTS_PARAM = "inserts";
+  String EVICTIONS_PARAM = "evictions";
+  String LOOKUPS_PARAM = "lookups";
   String SIZE_PARAM = "size";
+  String MAX_SIZE_PARAM = "maxSize";
+  String RAM_BYTES_USED_PARAM = "ramBytesUsed";
   String MAX_RAM_MB_PARAM = "maxRamMB";
+  String MAX_IDLE_TIME_PARAM = "maxIdleTime";
+  String INITIAL_SIZE_PARAM = "initialSize";
+  String CLEANUP_THREAD_PARAM = "cleanupThread";
+  String SHOW_ITEMS_PARAM = "showItems";
 
   /**
    * The initialization routine. Instance specific arguments are passed in
@@ -116,7 +127,6 @@ public interface SolrCache<K,V> extends SolrInfoBean, SolrMetricProducer {
    */
   public State getState();
 
-
   /**
    * Warm this cache associated with <code>searcher</code> using the <code>old</code>
    * cache object.  <code>this</code> and <code>old</code> will have the same concrete type.
@@ -129,20 +139,19 @@ public interface SolrCache<K,V> extends SolrInfoBean, SolrMetricProducer {
   /** Frees any non-memory resources */
   public void close();
 
-  /** Report current resource limits. */
-  public Map<String, Object> getResourceLimits();
+  /** Returns maximum size limit (number of items) if set and supported, -1 otherwise. */
+  int getMaxSize();
 
-  /** Set resource limits. */
-  default void setResourceLimits(Map<String, Object> limits) throws Exception {
-    if (limits == null || limits.isEmpty()) {
-      return;
-    }
-    for (Map.Entry<String, Object> entry : limits.entrySet()) {
-      setResourceLimit(entry.getKey(), entry.getValue());
-    }
-  }
+  /** Set maximum size limit (number of items), or -1 for unlimited. Note: this has effect
+   * only on implementations that support it, it's a no-op otherwise
+   */
+  void setMaxSize(int maxSize);
 
-  /** Set a named resource limit. */
-  public void setResourceLimit(String limitName, Object value) throws Exception;
+  /** Returns maximum size limit (in MB) if set and supported, -1 otherwise. */
+  int getMaxRamMB();
 
+  /** Set maximum size limit (in MB), or -1 for unlimited. Note: this has effect
+   * only on implementations that support it, it's a no-op otherwise.
+   */
+  void setMaxRamMB(int maxRamMB);
 }

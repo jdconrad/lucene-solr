@@ -193,8 +193,6 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
 
   private boolean isReloaded = false;
 
-  private StatsCache statsCache;
-
   private final SolrConfig solrConfig;
   private final SolrResourceLoader resourceLoader;
   private volatile IndexSchema schema;
@@ -238,7 +236,6 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
   public volatile boolean searchEnabled = true;
   public volatile boolean indexEnabled = true;
   public volatile boolean readOnly = false;
-  private List<Runnable> globalClassLoaderListeners = new ArrayList<>();
 
   public Set<String> getMetricNames() {
     return metricNames;
@@ -352,15 +349,6 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
       return searcher.getPath() == null ? dataDir + "index/" : searcher
           .getPath();
     }
-  }
-  void globalClassLoaderChanged(){
-    for (Runnable r : globalClassLoaderListeners) {
-      r.run();
-
-    }
-  }
-  void addGlobalClassLoaderListener(Runnable r){
-    globalClassLoaderListeners.add(r);
   }
 
 
@@ -868,11 +856,7 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
 
   public <T extends Object> T createInitInstance(PluginInfo info, Class<T> cast, String msg, String defClassName) {
     if (info == null) return null;
-    ResourceLoader resourceLoader = "global".equals(info.getRuntimeLibType())?
-        coreContainer.getClusterPropertiesListener().
-        getResourceLoader(): getResourceLoader();
-
-    T o = createInstance(info.className == null ? defClassName : info.className, cast, msg, this, resourceLoader);
+    T o = createInstance(info.className == null ? defClassName : info.className, cast, msg, this, getResourceLoader());
     if (o instanceof PluginInfoInitialized) {
       ((PluginInfoInitialized) o).init(info);
     } else if (o instanceof NamedListInitializedPlugin) {
@@ -980,7 +964,7 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
       this.codec = initCodec(solrConfig, this.schema);
 
       memClassLoader = new MemClassLoader(
-          RuntimeLib.getLibObjects(this, solrConfig.getPluginInfos(RuntimeLib.class.getName())),
+          PluginBag.RuntimeLib.getLibObjects(this, solrConfig.getPluginInfos(PluginBag.RuntimeLib.class.getName())),
           getResourceLoader());
       initIndex(prev != null, reload);
 
@@ -995,8 +979,6 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
       updateProcessorChains = loadUpdateProcessorChains();
       reqHandlers = new RequestHandlers(this);
       reqHandlers.initHandlersFromConfig(solrConfig);
-
-      statsCache = initStatsCache();
 
       // cause the executor to stall so firstSearcher events won't fire
       // until after inform() has been called for all components.
@@ -1431,7 +1413,10 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
     return factory.getCodec();
   }
 
-  private StatsCache initStatsCache() {
+  /**
+   * Create an instance of {@link StatsCache} using configured parameters.
+   */
+  public StatsCache createStatsCache() {
     final StatsCache cache;
     PluginInfo pluginInfo = solrConfig.getPluginInfo(StatsCache.class.getName());
     if (pluginInfo != null && pluginInfo.className != null && pluginInfo.className.length() > 0) {
@@ -1443,13 +1428,6 @@ public final class SolrCore implements SolrInfoBean, SolrMetricProducer, Closeab
       cache = new LocalStatsCache();
     }
     return cache;
-  }
-
-  /**
-   * Get the StatsCache.
-   */
-  public StatsCache getStatsCache() {
-    return statsCache;
   }
 
   /**
