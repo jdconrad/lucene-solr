@@ -61,13 +61,14 @@ public final class BKDReader extends PointValues implements Accountable {
       this.minLeafBlockFP = packedIndex.clone().readVLong();
     }
 
+    private BKDOffHeapInput(IndexInput packedIndex, long minLeadBlockFP) {
+      this.packedIndex = packedIndex;
+      this.minLeafBlockFP = minLeadBlockFP;
+    }
+
     @Override
     public BKDOffHeapInput clone() {
-      try {
-        return new BKDOffHeapInput(packedIndex.clone());
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+        return new BKDOffHeapInput(packedIndex.clone(), minLeafBlockFP);
     }
 
     @Override
