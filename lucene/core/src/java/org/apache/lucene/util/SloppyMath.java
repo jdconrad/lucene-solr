@@ -176,36 +176,6 @@ public class SloppyMath {
     }
   }
 
-  /**
-   * Convert to degrees.
-   * @deprecated use {@link Math#toDegrees(double)} instead
-   * @param radians radians to convert to degrees
-   * @return degrees
-   */
-  @Deprecated
-  public static double toDegrees(final double radians) {
-    return radians * TO_DEGREES;
-  }
-
-  /**
-   * Convert to radians.
-   * @deprecated use {@link Math#toRadians(double)} instead
-   * @param degrees degrees to convert to radians
-   * @return radians
-   */
-  public static double toRadians(final double degrees) {
-    return degrees * TO_RADIANS;
-  }
-
-  // haversin
-  /** @deprecated use {@link Math#toRadians(double)} instead */
-  @Deprecated
-  public static final double TO_RADIANS = Math.PI / 180D;
-
-  /** @deprecated use {@link Math#toDegrees(double)} instead */
-  @Deprecated
-  public static final double TO_DEGREES = 180D / Math.PI;
-
   // Earth's mean radius, in meters and kilometers; see http://earth-info.nga.mil/GandG/publications/tr8350.2/wgs84fin.pdf
   private static final double TO_METERS = 6_371_008.7714D; // equatorial radius
   private static final double TO_KILOMETERS = 6_371.0087714D; // equatorial radius
