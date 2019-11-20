@@ -459,25 +459,6 @@ public final class FST<T> implements Accountable {
     this.fstStore.init(in, numBytes);
   }
 
-  private long ramBytesUsed(Arc<T>[] arcs) {
-    long size = 0;
-    if (arcs != null) {
-      size += RamUsageEstimator.shallowSizeOf(arcs);
-      for (Arc<T> arc : arcs) {
-        if (arc != null) {
-          size += ARC_SHALLOW_RAM_BYTES_USED;
-          if (arc.output() != null && arc.output() != outputs.getNoOutput()) {
-            size += outputs.ramBytesUsed(arc.output());
-          }
-          if (arc.nextFinalOutput() != null && arc.nextFinalOutput() != outputs.getNoOutput()) {
-            size += outputs.ramBytesUsed(arc.nextFinalOutput());
-          }
-        }
-      }
-    }
-    return size;
-  }
-
   @Override
   public long ramBytesUsed() {
     long size = BASE_RAM_BYTES_USED;
