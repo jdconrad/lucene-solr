@@ -24,7 +24,93 @@ dependencies {
   api project(':lucene:queries')
   api project(':lucene:sandbox')
 
+  implementation 'org.antlr:antlr4-runtime'
+
   testImplementation project(':lucene:test-framework')
 }
 
+configurations {
+  regenerate
+}
 
+dependencies {
+  regenerate 'org.antlr:antlr4:4.5.3'
+}
+
+String grammarPath = 'src/java/org/apache/lucene/queryparser/classic'
+String outputPath = 'src/java/org/apache/lucene/queryparser/classic'
+
+tasks.register("cleanGenerated", Delete) {
+  delete fileTree(grammarPath) {
+    include '*.tokens'
+  }
+  delete fileTree(outputPath) {
+    include 'ClassicQuery*.java'
+  }
+}
+
+tasks.register("regenLexer", JavaExec) {
+  dependsOn "cleanGenerated"
+  main = 'org.antlr.v4.Tool'
+  classpath = configurations.regenerate
+  systemProperty 'file.encoding', 'UTF-8'
+  systemProperty 'user.language', 'en'
+  systemProperty 'user.country', 'US'
+  systemProperty 'user.variant', ''
+  args '-Werror',
+      '-package', 'org.apache.lucene.queryparser.classic',
+      '-o', outputPath,
+      "${file(grammarPath)}/ClassicQueryLexer.g4"
+}
+
+tasks.register("regenParser", JavaExec) {
+  dependsOn "regenLexer"
+  main = 'org.antlr.v4.Tool'
+  classpath = configurations.regenerate
+  systemProperty 'file.encoding', 'UTF-8'
+  systemProperty 'user.language', 'en'
+  systemProperty 'user.country', 'US'
+  systemProperty 'user.variant', ''
+  args '-Werror',
+      '-package', 'org.apache.lucene.queryparser.classic',
+      '-no-listener',
+      '-visitor',
+      // '-Xlog',
+      '-o', outputPath,
+      "${file(grammarPath)}/ClassicQueryParser.g4"
+}
+
+tasks.register("regen") {
+  dependsOn "regenParser"
+  doLast {
+    // moves token files to grammar directory for use with IDE's
+    ant.move(file: "${outputPath}/ClassicQueryLexer.tokens", toDir: grammarPath)
+    ant.move(file: "${outputPath}/ClassicQueryParser.tokens", toDir: grammarPath)
+    // make the generated classes package private
+    ant.replaceregexp(match: 'public ((interface|class) \\QClassicQuery\\E\\w+)',
+        replace: '\\1',
+        encoding: 'UTF-8') {
+      fileset(dir: outputPath, includes: 'ClassicQuery*.java')
+    }
+    // make the lexer abstract
+    ant.replaceregexp(match: '(class \\QClassicQuery\\ELexer)',
+        replace: 'abstract \\1',
+        encoding: 'UTF-8') {
+      fileset(dir: outputPath, includes: 'ClassicQueryLexer.java')
+    }
+    // nuke timestamps/filenames in generated files
+    ant.replaceregexp(match: '\\Q// Generated from \\E.*',
+        replace: '\\/\\/ ANTLR GENERATED CODE: DO NOT EDIT',
+        encoding: 'UTF-8') {
+      fileset(dir: outputPath, includes: 'ClassicQuery*.java')
+    }
+    // remove tabs in antlr generated files
+    ant.replaceregexp(match: '\t', flags: 'g', replace: '  ', encoding: 'UTF-8') {
+      fileset(dir: outputPath, includes: 'ClassicQuery*.java')
+    }
+    // fix line endings
+    ant.fixcrlf(srcdir: outputPath, eol: 'lf') {
+      patternset(includes: 'ClassicQuery*.java')
+    }
+  }
+}

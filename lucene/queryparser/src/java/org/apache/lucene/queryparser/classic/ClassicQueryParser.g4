@@ -1,60 +1,92 @@
-parser ClassicQueryParser;
+parser grammar ClassicQueryParser;
 
-query: clause+ EOF;
-first_clause: ( PLUS | MINUS )? (term COLON)? (term | query)
-multi_clause:
-term:
+options { tokenVocab=ClassicQueryLexer; }
 
-WS: [ \t\n\r\u3000]+;
-
-NUM_CHAR: [0-9];
-
-ESCAPED_CHAR: '\\' ~[];
-
-TERM_START_CHAR
-    : ~[ \t\n\r\u3000+-!():^[]\"{}~*?\\/]
-    | ESCAPED_CHAR
+top
+    : query EOF
     ;
 
-TERM_CHAR
-    : TERM_START_CHAR>
-    | '-'
-    | '+'
+query
+    : first_clause conjunction_clause*
     ;
 
-QUOTED_CHAR
-    : ~[\\"]
-    | <_ESCAPED_CHAR>
+first_clause
+    : multi_term
+    | modifiers clause
+    ;
+conjunction_clause
+    : multi_term
+    | conjunction modifiers clause
     ;
 
-AND: 'AND' | '&&';
-OR: 'OR' | '||';
-NOT: 'NOT' | '!';
-PLUS: '+';
-MINUS: '-'
-BAREOPER: ("+"|"-"|"!") WS
-LPAREN:        '(';
-RPAREN:        ')';
-COLON:         ':';
-STAR:          '*';
-CARAT:         '^';
-QUOTED:        '"' QUOTED_CHAR* '"';
-TERM:          TERM_START_CHAR> (TERM_CHAR)*
-FUZZY_SLOP: '~' (NUM_CHAR+ (( '.' NUM_CHAR+ )? TERM_CHAR* ) | TERM_CHAR* );
-PREFIXTERM:    '*' | TERM_START_CHAR TERM_CHAR* '*' );
-WILDTERM:      (TERM_START_CHAR | [*?]) (TERM_CHAR | ( [ '*', '?' ] ))*;
-REGEXPTERM:    '/' (~[ '/' ] | '\\/' )* '/' >
-RANGEIN_START: '[' > : Range
-RANGEEX_START: '{' > : Range
+multi_term
+    : TERM+
+    ;
 
-<Boost> TOKEN : {
-  <NUMBER: (<_NUM_CHAR>)+ ( "." (<_NUM_CHAR>)+ )? > : DEFAULT
-}
+clause
+    : clause_field? clause_term
+    ;
 
-<Range> TOKEN : {
-  <RANGE_TO:     "TO">
-| <RANGEIN_END:  "]"> : DEFAULT
-| <RANGEEX_END:  "}"> : DEFAULT
-| <RANGE_QUOTED: "\"" (~["\""] | "\\\"")+ "\"">
-| <RANGE_GOOP:   (~[ " ", "]", "}" ])+ >
-}
+clause_field
+    : TERM COLON
+    | STAR COLON
+    ;
+clause_term
+    : term
+    | LPAREN query RPAREN boost?
+    ;
+
+term
+    : simple_term
+    | quoted_term
+    | range_term
+    ;
+
+simple_term
+    : ( TERM | STAR | PREFIXTERM | WILDTERM | REGEXPTERM | NUMBER | BAREOPER ) boost_or_fuzzy_boost?
+    ;
+quoted_term
+    : QUOTED boost_or_fuzzy_boost?
+    ;
+range_term
+    : range_start range_first RANGE_TO range_second range_end boost?
+    ;
+
+range_first
+    : range_part
+    ;
+range_second
+    : range_part
+    ;
+
+range_start
+    : RANGE_IN_START
+    | RANGE_EX_START
+    ;
+range_part
+    : RANGE_GOOP
+    | RANGE_QUOTED
+    | RANGE_TO
+    ;
+range_end
+    : RANGE_IN_END
+    | RANGE_EX_END
+    ;
+
+boost_or_fuzzy_boost
+    : boost
+    | FUZZY_SLOP boost?
+    ;
+boost
+    : CARAT BOOST_NUMBER
+    ;
+
+modifiers
+    : PLUS
+    | MINUS
+    | NOT
+    ;
+conjunction
+    : AND
+    | OR
+    ;
